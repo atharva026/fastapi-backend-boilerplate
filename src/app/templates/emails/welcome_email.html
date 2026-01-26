@@ -1,0 +1,10 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}Welcome!{% endblock %}
+
+{% block content %}
+    <h2 style="color: #2c3e50;">Welcome to Our Platform!</h2>
+    <p>Hello {{ name }},</p>
+    <p>Welcome to our platform! Your account has been successfully created.</p>
+    <p>You can now log in and start using our services.</p>
+{% endblock %}
