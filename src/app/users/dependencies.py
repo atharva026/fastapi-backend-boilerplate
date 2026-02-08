@@ -1,5 +1,5 @@
 from fastapi import Depends, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.users.service import UserService
 from src.app.core.database import get_db
@@ -11,7 +11,7 @@ from src.app.core.exceptions import (
 )
 
 def get_user_service(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> UserService:
     return UserService(db)
 

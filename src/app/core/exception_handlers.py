@@ -1,4 +1,4 @@
-from fastapi import Request, status
+from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
@@ -42,6 +42,24 @@ def validation_exception_handler(
             "error": {
                 "code": "REQUEST_VALIDATION_ERROR",
                 "message": exc.errors(),
+            },
+        },
+    )
+
+# HTTPException handler (for exceptions raised with HTTPException)
+def http_exception_handler(
+    request: Request, 
+    exc: HTTPException
+):
+    logger.error("HTTPException:", exc_info=exc) # exc_info includes traceback
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "error": {
+                "code": "HTTP_ERROR",
+                "message": exc.detail,
             },
         },
     )

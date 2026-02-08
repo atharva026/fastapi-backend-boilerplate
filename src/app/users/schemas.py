@@ -26,15 +26,3 @@ class UserInDB(UserBase):
     
 class UserResponse(UserInDB):
     pass
-
-class PaginatedUserResponse(BaseModel):
-    total_users: int
-    limit: int
-    current_page: int
-    total_pages: int
-    has_next_page: bool
-    has_previous_page: bool
-    next_page: Optional[int]
-    previous_page: Optional[int]
-    
-    users: List[UserResponse]

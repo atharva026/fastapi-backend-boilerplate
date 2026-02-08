@@ -5,7 +5,7 @@ def get_cookie_options(request: Request) -> dict:
     origin = request.headers.get("origin") or request.headers.get("referer") or ""
     domain = None
 
-    if config.ENV in ["production", "development"]:
+    if config.ENVIRONMENT in ["prod", "dev"]:
         if "staging.admin.fastapi.com" in origin:
             domain = "staging.admin.fastapi.com"
         elif "staging.fastapi.com" in origin:
@@ -16,7 +16,7 @@ def get_cookie_options(request: Request) -> dict:
             domain = "fastapi.com"
         # otherwise: leave domain=None (browser will default)
 
-    # if config.ENV in ["production", "staging"]:
+    # if config.ENVIRONMENT in ["prod", "staging"]:
     #     samesite = "none"
     #     secure = True
     # else:

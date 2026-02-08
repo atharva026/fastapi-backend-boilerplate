@@ -17,6 +17,7 @@ router = APIRouter()
 @router.get(
     "/{user_id}", 
     response_model = UserResponse,
+    status_code = status.HTTP_200_OK,
     responses = {
         **UNAUTHORIZED_RESPONSES,
         **USER_NOT_FOUND,
@@ -36,6 +37,7 @@ async def get_user(
 @router.put(
     "/{user_id}", 
     response_model = UserResponse,
+    status_code = status.HTTP_200_OK,
     responses = {
         **UNAUTHORIZED_RESPONSES,
         **FORBIDDEN_RESPONSES,

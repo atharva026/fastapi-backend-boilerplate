@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.app.models.user import User
+from src.app.models.user import User, UserType
 from src.app.users.schemas import UserUpdate
 from src.app.core.exceptions import (
     ForbiddenException, 
@@ -52,7 +52,7 @@ class UserService:
         user = await self.get_user_by_id(user_id)
         
         # Only allow self-update unless admin
-        if current_user.id != user_id and current_user.user_type != "admin":
+        if current_user.id != user_id and current_user.user_type != UserType.ADMIN:
             raise ForbiddenException("Not enough permissions")
 
         update_data = user_update.model_dump(exclude_unset=True)

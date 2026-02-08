@@ -36,7 +36,7 @@ router = APIRouter()
 @router.post(
     "/signup", 
     response_model = UserResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code = status.HTTP_201_CREATED,
     responses = {
         **USER_ALREADY_EXISTS,
         **INTERNAL_SERVER_ERROR
@@ -53,6 +53,16 @@ async def signup(
     "/login", 
     response_model = None,
     responses = {
+        status.HTTP_200_OK : {
+            "description": "User logged in successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "message": "Login successful"
+                    }
+                }
+            }
+        },
         **ResponseBuilder.build(status.HTTP_401_UNAUTHORIZED,INVALID_CREDENTIALS_EXAMPLE),
         **USER_NOT_FOUND,
         **INTERNAL_SERVER_ERROR
@@ -71,7 +81,10 @@ async def login(
     
     cookie_opts = get_cookie_options(request)
 
-    response = JSONResponse(content={"message": "Login successful"})
+    response = JSONResponse(
+        status_code= status.HTTP_200_OK,
+        content= {"message": "Login successful"}
+    )
 
     response.set_cookie(
         key="access_token",
@@ -97,7 +110,9 @@ async def login(
             "description": "Access Token refreshed successfully",
             "content": {
                 "application/json": {
-                    "message": "Access token refreshed"
+                    "example": {
+                        "message": "Access token refreshed"
+                    }
                 }
             }
         },
@@ -119,8 +134,8 @@ def refresh_token(
     cookie_opts = get_cookie_options(request)
 
     response = JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content={"message": "Access token refreshed"}
+        status_code= status.HTTP_200_OK,
+        content= {"message": "Access token refreshed"}
     )
 
     response.set_cookie(
@@ -134,7 +149,7 @@ def refresh_token(
 
 @router.post(
     "/forgot-password",
-    responses={
+    responses = {
         status.HTTP_200_OK : {
             "description": "Password reset link sent to email successfully",
             "content": {
@@ -205,7 +220,7 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
 
 @router.post(
     "/logout",
-    responses={
+    responses = {
         status.HTTP_200_OK : {
             "description": "User logged out successfully",
             "content": {
@@ -229,7 +244,10 @@ def logout(
     try:
         cookie_opts = get_cookie_options(request)
 
-        response = JSONResponse(content={"message": "Logout successful"})
+        response = JSONResponse(
+            status_code= status.HTTP_200_OK,
+            content= {"message": "Logout successful"}
+        )
         response.delete_cookie("access_token", **cookie_opts)
         response.delete_cookie("refresh_token", **cookie_opts)
 
