@@ -120,7 +120,7 @@ async def login(
         **INTERNAL_SERVER_ERROR
     }
 )
-def refresh_token(
+async def refresh_token(
     request: Request, 
     auth_service: AuthService = Depends(get_auth_service)
 ):
@@ -129,7 +129,7 @@ def refresh_token(
     refresh_token = request.cookies.get("refresh_token")
 
     # Validate & generate new access token
-    access_token = auth_service.refresh_access_token(refresh_token)
+    access_token = await auth_service.refresh_access_token(refresh_token)
 
     cookie_opts = get_cookie_options(request)
 

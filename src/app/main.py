@@ -39,8 +39,8 @@ app = FastAPI(
     title="Fast API Boilerplate",
     description="REST API documentation",
     version=VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None if config.ENVIRONMENT == "prod" else "/docs",
+    redoc_url=None if config.ENVIRONMENT == "prod" else "/redoc",
     openapi_tags=openapi_tags,
     lifespan=lifespan,
 )
