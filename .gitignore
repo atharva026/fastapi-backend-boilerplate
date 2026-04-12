@@ -115,4 +115,3 @@ logs/
 .env.dev
 .env.prod
 .env.staging
-uploads/

@@ -30,9 +30,9 @@ async def get_user(
     user_service: UserService = Depends(get_user_service)
 ):
     """
-    Get user by ID.
+    Get user by ID. This endpoint is public and does not require authentication.
     """
-    return await user_service.get_user_by_id(user_id)
+    return await user_service.get_user_by_id_or_raise(user_id)
     
 @router.put(
     "/{user_id}", 

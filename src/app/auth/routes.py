@@ -23,7 +23,8 @@ from src.app.common.response.response_groups import(
 )
 from src.app.common.response.examples import (
     INVALID_CREDENTIALS_EXAMPLE, 
-    INVALID_TOKEN_EXAMPLE
+    INVALID_TOKEN_EXAMPLE,
+    EXPIRED_TOKEN_EXAMPLE
 )
 from src.app.common.response.response_builder import ResponseBuilder
 from src.app.utils.get_cookie_options import get_cookie_options
@@ -63,7 +64,7 @@ async def signup(
                 }
             }
         },
-        **ResponseBuilder.build(status.HTTP_401_UNAUTHORIZED,INVALID_CREDENTIALS_EXAMPLE),
+        **ResponseBuilder.build(status.HTTP_401_UNAUTHORIZED, INVALID_CREDENTIALS_EXAMPLE),
         **USER_NOT_FOUND,
         **INTERNAL_SERVER_ERROR
     }
@@ -77,7 +78,7 @@ async def login(
 
     user = await auth_service.authenticate_user(login_data)
 
-    access_token, refresh_token = auth_service.create_tokens_for_user(user)
+    access_token, refresh_token = await auth_service.create_tokens_for_user(user)
     
     cookie_opts = get_cookie_options(request)
 
@@ -117,6 +118,7 @@ async def login(
             }
         },
         **ResponseBuilder.build(status.HTTP_401_UNAUTHORIZED, INVALID_TOKEN_EXAMPLE),
+        **USER_NOT_FOUND,
         **INTERNAL_SERVER_ERROR
     }
 )
@@ -187,7 +189,8 @@ async def forgot_password_route(
                 }
             }
         },
-        **ResponseBuilder.build(status.HTTP_401_UNAUTHORIZED, INVALID_TOKEN_EXAMPLE),
+        **ResponseBuilder.build(status.HTTP_401_UNAUTHORIZED, INVALID_TOKEN_EXAMPLE, EXPIRED_TOKEN_EXAMPLE),
+        **USER_NOT_FOUND,
         **INTERNAL_SERVER_ERROR
     }
 )
@@ -226,7 +229,7 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
             "content": {
                 "application/json": {
                     "example": {
-                        "message": "User logged out successfully"
+                        "message": "Logout successful"
                     }
                 }
             }
@@ -234,26 +237,26 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
         **INTERNAL_SERVER_ERROR
     }
 )
-def logout(
+async def logout(
     request: Request, 
-    response: Response, 
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service)
 ):
     """
     Logout user by clearing cookies (access_token + refresh_token).
     """
     try:
-        cookie_opts = get_cookie_options(request)
-
-        response = JSONResponse(
-            status_code= status.HTTP_200_OK,
-            content= {"message": "Logout successful"}
+        await auth_service.logout_user(
+            request.cookies.get("access_token"),
+            request.cookies.get("refresh_token")
         )
-        response.delete_cookie("access_token", **cookie_opts)
-        response.delete_cookie("refresh_token", **cookie_opts)
-
-        return response
-
     except Exception as e:
-        logger.exception(f"(auth) Unexpected logout error: {str(e)}")
-        raise UnexpectedException()
-    
+        logger.warning(f"(auth) Logout cleanup failed: {str(e)}")
+        # Don't raise — logout should still succeed
+
+    cookie_opts = get_cookie_options(request)
+
+    response.delete_cookie("access_token", **cookie_opts)
+    response.delete_cookie("refresh_token", **cookie_opts)
+
+    return {"message": "Logout successful"}

@@ -1,11 +1,17 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-
+import hashlib
+import uuid
 import jwt as PyJWT
 from passlib.context import CryptContext
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+
 from src.app.core.config import config
 
-INVALID_TOKEN="Invalid token payload"
+_reset_serializer = URLSafeTimedSerializer(
+    secret_key=config.JWT_SECRET_KEY,
+    salt="password-reset"
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -21,6 +27,19 @@ def get_password_hash(password: str) -> str:
     """
     return pwd_context.hash(password)
 
+def create_password_signature(password_hash: str) -> str:
+    """
+    Create a signature from the password hash.
+    This signature is used to validate that the password hasn't changed since token creation.
+        
+    Args:
+        password_hash: The hashed password
+        
+    Returns:
+        16-character signature string
+    """
+    return hashlib.sha256(password_hash.encode()).hexdigest()[:16]
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verify a password against its hash.
@@ -34,14 +53,42 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     return pwd_context.verify(plain_password, hashed_password)
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_token(
+    data: dict,
+    token_type: str,
+    expires_delta: Optional[timedelta] = None
+) -> str:
+    """
+    Create a JWT token with the given data and token type (access or refresh).
+
+    Args:
+        data: Dictionary of data to include in the token payload (e.g. {"sub": user_id})
+        token_type: "access" or "refresh" to determine expiration time
+        expires_delta: Optional timedelta to override default expiration time
+
+    Returns:
+            Encoded JWT token string
+    """
     to_encode = data.copy()
+    jti = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+ 
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = now + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=config.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    to_encode.update({"exp": expire, "type": "access"})
+        if token_type == "access":
+            expire = now + timedelta(minutes=config.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+        elif token_type == "refresh":
+            expire = now + timedelta(days=config.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+        else:
+            raise ValueError("Invalid token type")
+        
+    to_encode.update({
+        "iat": now,
+        "exp": expire, 
+        "type": token_type,
+        "jti": jti
+    })
 
     encoded_jwt = PyJWT.encode(
         to_encode, 
@@ -51,14 +98,17 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     
     return encoded_jwt
 
-def create_refresh_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=config.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = PyJWT.encode(to_encode, config.JWT_SECRET_KEY, algorithm=config.JWT_ALGORITHM)
-    return encoded_jwt
+def verify_token(token: str, token_type: str = "access"): # -> Optional[str]:
+    """
+    Verify a JWT token and return the payload if valid.
 
-def verify_token(token: str, token_type: str = "access") -> Optional[str]:
+    Args:
+        token: JWT token string to verify
+        token_type: Expected token type ("access" or "refresh") to validate against the payload
+
+    Returns:
+        Payload dictionary if token is valid and matches the expected type, or None if invalid/expired
+    """
     try:
         payload = PyJWT.decode(
             token, 
@@ -66,95 +116,60 @@ def verify_token(token: str, token_type: str = "access") -> Optional[str]:
             algorithms=[config.JWT_ALGORITHM]
         )
         
-        email: str = payload.get("sub")
+        sub: str = payload.get("sub")
         token_type_payload: str = payload.get("type")
         
-        if email is None or token_type_payload != token_type:
-            raise PyJWT.InvalidTokenError(INVALID_TOKEN)
-        return email
+        if sub is None or token_type_payload != token_type:
+            raise PyJWT.InvalidTokenError("Invalid token payload")
+        return payload
     except (PyJWT.ExpiredSignatureError, PyJWT.InvalidTokenError):
         return None
-    
-def create_reset_token(data: dict) -> str:
-    """
-    Create a JWT reset token that includes user_id and password signature.
-    
-    The password signature ensures the token becomes invalid once password
-    is changed, providing one-time use security without database storage.
-        
-    Returns:
-        JWT token string
-        
-    Token Payload Structure:
-        {
-            'user_id': 123,
-            'pwd_sig': 'a3f2c1b4e5d6f7a8',  # First 16 chars of password_hash
-            'exp': 1234567890,  # Expiration timestamp
-            'iat': 1234567800,  # Issued at timestamp
-            'purpose': 'password_reset'
-        }
-    """
-    to_encode = data.copy()
-    # Build JWT payload
-    payload = {
-        'exp': datetime.now(timezone.utc) + timedelta(
-            minutes=config.JWT_RESET_TOKEN_EXPIRE_MINUTES
-        ),
-        'iat': datetime.now(timezone.utc),
-        'purpose': 'password_reset'
-    }
 
-    to_encode.update(payload)
-    
-    # Encode and return JWT token
-    token = PyJWT.encode(
-        to_encode,
-        config.JWT_SECRET_KEY,
-        algorithm=config.JWT_ALGORITHM
+def exp_to_datetime(payload: dict) -> datetime:
+    """Convert the 'exp' claim from the token payload to a datetime object."""
+    return datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+   
+def create_reset_token(user_id: str, pwd_sig: str) -> str:
+    """
+    Create a signed, time-limited password-reset token.
+
+    pwd_sig (first 16 chars of bcrypt hash) ensures the token is
+    one-time-use: once the password changes the signature no longer matches.
+
+    Args:
+        user_id: User ID for which the token is being created (required)
+        pwd_sig: Password signature (required)
+    """
+    return _reset_serializer.dumps(
+        {
+            "sub": user_id, 
+            "pwd_sig": pwd_sig
+        }
     )
-    
-    return token
-    
+
 def verify_reset_token(token: str) -> dict | None:
     """
-    Verify the reset token and return the payload if valid.
-    
-    Args:
-        token: JWT token string
-        
+    Validate a password-reset token.
+
     Returns:
-        Dictionary containing:
-            - user_id: User's ID
-            - pwd_sig: Password signature from when token was created
-        
-    Raises:
-        InvalidTokenException: If token is invalid, expired, or wrong purpose
-        
-    Example:
-        payload = verify_reset_token("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
-        # Returns: {'user_id': 123, 'pwd_sig': 'a3f2c1b4e5d6f7a8'}
+        {"sub": "<user_id>", "pwd_sig": "<signature>"} on success
+        None on expiry or tampering
     """
     try:
-        # Decode JWT token
-        payload = PyJWT.decode(
-            token, 
-            config.JWT_SECRET_KEY, 
-            algorithms=[config.JWT_ALGORITHM]
+        data = _reset_serializer.loads(
+            token,
+            max_age=(60 * config.JWT_RESET_TOKEN_EXPIRE_MINUTES)
         )
-        
-        # Verify this is a password reset token
-        if payload.get('purpose') != 'password_reset':
-            raise PyJWT.InvalidTokenError(INVALID_TOKEN)
-        
-         # Verify required fields are present
-        if 'user_id' not in payload or 'pwd_sig' not in payload:
-            raise PyJWT.InvalidTokenError(INVALID_TOKEN)
-        
-        # Extract and return relevant data
+
+        if "sub" not in data or "pwd_sig" not in data:
+            return None
+
         return {
-            'user_id': payload['user_id'],
-            'pwd_sig': payload['pwd_sig']
+            "sub": data["sub"], 
+            "pwd_sig": data["pwd_sig"]
         }
-        
-    except (PyJWT.ExpiredSignatureError, PyJWT.InvalidTokenError):
+
+    except SignatureExpired:
+        return None
+    except BadSignature:
         return None

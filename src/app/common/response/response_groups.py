@@ -5,7 +5,7 @@ from src.app.common.response.response_builder import ResponseBuilder
 # 401 response group
 UNAUTHORIZED_RESPONSES = ResponseBuilder.build(
     status.HTTP_401_UNAUTHORIZED,
-    examples.INVALID_CREDENTIALS_EXAMPLE,
+    examples.INVALID_TOKEN_EXAMPLE,
     examples.NOT_AUTHENTICATED_EXAMPLE
 )
 

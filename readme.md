@@ -1,19 +1,21 @@
 # FastAPI – Alembic – SQLAlchemy Boilerplate
-A **production-ready backend boilerplate** built with **FastAPI**, **SQLAlchemy**, and **Alembic**, featuring **JWT-based authentication**, **user management**, and a **feature-based modular architecture**.
+
+A **production-ready backend boilerplate** built with **FastAPI**, **SQLAlchemy**, and **Alembic**, featuring **JWT-based authentication**, **user management**, and a **feature-based modular architecture** and includes **Redis integration** for efficient **access & refresh token management**..
 
 This template is designed for building scalable, maintainable APIs with clean separation of concerns and best practices baked in from day one.
-
 
 ## Getting Started Setup
 
 ### Prerequisites
 - Python (3.10+ recommended)
 - PostgreSQL (or your preferred DB)
+- Redis (for token storage)
 
 ### Installation
 Clone the repository
 ```
 git clone https://github.com/atharva026/fastapi-alembic-sqlalchemy-boilerplate
+
 cd fastapi-alembic-sqlalchemy-boilerplate
 ```
 
@@ -47,6 +49,24 @@ This project supports automatic loading of environment-specific `.env` files usi
 
 The application dynamically selects which env file to load based on the value of `ENVIRONMENT` variable.
 
+#### Set environment variable
+- On Linux / macOS (terminal)
+    ```
+    export ENVIRONMENT=prod
+    ```
+
+- On Windows (CMD)
+    ```
+    set ENVIRONMENT=prod
+    ```
+
+- On Windows (PowerShell)
+    ```
+    $env:ENVIRONMENT="prod"
+    echo $env:ENVIRONMENT
+    Remove-Item Env:ENVIRONMENT
+    ```
+
 Refer `.env.sample` for used env variables across the project
 
 Create separate env files for each environment:
@@ -70,12 +90,20 @@ Nested configs use __ as a delimiter. Example
 ```
 DB_CONFIG__DB_NAME=
 EMAIL_CONFIG__EMAIL_HOST=
+REDIS_CONFIG__REDIS_HOST=l
 ```
 
-### Initialize database migrations
+### Initialize database & migrations
+Make sure your database is running and the connection settings in your `.env.*` file are correct. Refer to `.env.sample` for required database env variables.
+
+Then, initialize the database schema using Alembic migrations:
+
 ```
 alembic upgrade head
 ```
+
+### Redis Setup
+Make sure Redis is installed and running on your machine. Configure Redis connection settings in your `.env.*` file. Refer to `.env.sample` for required Redis env variables.
 
 ### Run the application
 Start the FastAPI application using Uvicorn:

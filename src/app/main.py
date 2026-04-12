@@ -12,6 +12,10 @@ from src.app.core.database import (
     on_startup as db_on_startup, 
     on_shutdown as db_on_shutdown
 )
+from src.app.core.redis import (
+    redis_on_startup,
+    redis_on_shutdown
+)
 
 from fastapi.exceptions import RequestValidationError
 from src.app.core.exceptions import AppException
@@ -32,7 +36,11 @@ VERSION = "1.0.0"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await db_on_startup()
+    await redis_on_startup()
+
     yield
+
+    await redis_on_shutdown()
     await db_on_shutdown()
     
 app = FastAPI(

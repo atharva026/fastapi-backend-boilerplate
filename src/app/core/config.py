@@ -13,7 +13,7 @@ class DBConfig(BaseModel):
     db_user: str = Field(alias="DB_USER")
     db_password: str = Field(alias="DB_PASSWORD")
     db_host: str = Field(alias="DB_HOST")
-    db_port: str = Field(alias="DB_PORT")
+    db_port: int = Field(alias="DB_PORT")
     db_schema: Optional[str] = Field(default=None, alias="DB_SCHEMA")
 
     pool_size: int = Field(default=10, alias="POOL_SIZE")
@@ -34,6 +34,22 @@ class EmailConfig(BaseModel):
     email_username: str = Field(alias="EMAIL_USERNAME")
     email_password: str = Field(alias="EMAIL_PASSWORD")
     email_from: str = Field(alias="EMAIL_FROM")
+
+class RedisConfig(BaseModel):
+    redis_host: str = Field(alias="REDIS_HOST")
+    redis_port: int = Field(alias="REDIS_PORT")
+    redis_db: int = Field(default=0, alias="REDIS_DB")
+    
+    redis_username: Optional[str] = Field(default=None, alias="REDIS_USERNAME")
+    redis_password: Optional[str] = Field(default=None, alias="REDIS_PASSWORD")
+
+    @property
+    def redis_url(self):
+        if self.redis_username and self.redis_password:
+            return f"redis://{self.redis_username}:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
+        elif self.redis_password:
+            return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
+        return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
 class Settings(BaseSettings):
     """Application configuration settings."""
@@ -58,6 +74,9 @@ class Settings(BaseSettings):
     
     # Email
     EMAIL_CONFIG: EmailConfig
+
+    # Redis
+    REDIS_CONFIG: RedisConfig
 
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"

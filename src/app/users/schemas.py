@@ -1,13 +1,12 @@
 import uuid
 from pydantic import BaseModel, ConfigDict, EmailStr
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 from src.app.models.user import UserType
 
 class UserBase(BaseModel):
     email: EmailStr
     name: str
-    user_type: UserType = UserType.USER
 
 class UserCreate(UserBase):
     password: str
@@ -17,6 +16,7 @@ class UserUpdate(BaseModel):
 
 class UserInDB(UserBase):
     id: uuid.UUID
+    user_type: UserType
     is_verified: bool
     created_at: datetime
     updated_at: Optional[datetime] = None

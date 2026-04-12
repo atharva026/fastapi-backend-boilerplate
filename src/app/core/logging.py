@@ -12,7 +12,7 @@ def setup_logging() -> None:
     Must be called ONCE during application startup.
 
     If log_level = logging.INFO, then DEBUG log messages
-will NOT be emitted (they are ignored).
+    will NOT be emitted (they are ignored).
     """
 
     log_level = logging.DEBUG if config.DEBUG else logging.INFO
