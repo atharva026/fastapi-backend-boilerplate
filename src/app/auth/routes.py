@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Response, status, Request
 from fastapi.responses import JSONResponse
 
-from src.app.core.exceptions import InvalidTokenException, UnexpectedException
+from src.app.core.exceptions import InvalidTokenException
 from src.app.core.config import config
 
 from src.app.models.user import User

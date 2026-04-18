@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from typing import Tuple
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.core.token_store import TokenStore
 from src.app.users.service import UserService
@@ -32,12 +31,10 @@ logger = get_logger(__name__)
 class AuthService:
     def __init__(
         self, 
-        db: AsyncSession,
         user_service: UserService,
         email_service: EmailService,
         token_store: TokenStore,
     ):
-        self.db = db
         self.user_service = user_service
         self.email_service = email_service
         self.token_store = token_store
@@ -163,7 +160,7 @@ class AuthService:
         
         # Verify token and extract payload
         token_data = verify_reset_token(token)
-        if token_data == None:
+        if token_data is None:
             raise ExpiredTokenException()
 
         user_id = token_data["sub"]

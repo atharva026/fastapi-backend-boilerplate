@@ -49,6 +49,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+# Ruff stuff:
+.ruff_cache/
 
 # db files
 *.db

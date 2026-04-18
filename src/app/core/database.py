@@ -90,7 +90,7 @@ class DatabaseSessionManager:
         try:
             yield session
             await session.commit()
-        except Exception as e:
+        except Exception: # as e:
             await session.rollback()
             # logger.error(f"Unexpected error: {str(e)}", exc_info=True)
             raise
@@ -111,7 +111,7 @@ class DatabaseSessionManager:
         try:
             yield session
             session.commit()
-        except (SQLAlchemyError, Exception) as e:
+        except (SQLAlchemyError, Exception): # as e:
             session.rollback()
             # logger.error(f"Database error: {str(e)}", exc_info=True)
             raise

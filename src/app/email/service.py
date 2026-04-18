@@ -1,4 +1,5 @@
 from typing import Optional
+from functools import lru_cache
 import uuid
 import aiosmtplib
 from email.mime.text import MIMEText
@@ -164,5 +165,6 @@ class EmailService:
             html_content=html_content
         )
     
+@lru_cache()
 def get_email_service() -> EmailService:
     return EmailService()

@@ -2,3 +2,8 @@
 
 from src.app.models.base import Base
 from src.app.models.user import User
+
+__all__ = [
+    "Base",
+    "User",
+]
