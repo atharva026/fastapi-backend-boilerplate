@@ -48,7 +48,7 @@ class AuthException(AppException):
     def __init__(self, message: str, code="AUTH_ERROR"):
         self.message = message
         self.code = code
-        super().__init__(message)
+        super().__init__(message, code)
 
 class NotAuthenticatedException(AuthException):
     def __init__(self, message: str = "Not authenticated"):

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response, status, Request
+from fastapi import APIRouter, Depends, Response, status, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from src.app.core.exceptions import InvalidTokenException
@@ -45,10 +45,11 @@ router = APIRouter()
 )
 async def signup(
     user_data: UserCreate, 
+    background_tasks: BackgroundTasks,
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """Register a new user"""
-    return await auth_service.create_user(user_data)
+    return await auth_service.create_user(user_data, background_tasks)
 
 @router.post(
     "/login", 
@@ -167,10 +168,11 @@ async def refresh_token(
 )
 async def forgot_password_route(
     request_data: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """Send password reset email"""
-    await auth_service.forgot_password(request_data.email)
+    await auth_service.forgot_password(request_data.email, background_tasks)
         
     return MessageResponse(
         message="If the email exists in our system, a password reset link has been sent"

@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Tuple
+from fastapi import BackgroundTasks
 
 from src.app.core.token_store import TokenStore
 from src.app.users.service import UserService
@@ -39,7 +40,7 @@ class AuthService:
         self.email_service = email_service
         self.token_store = token_store
     
-    async def create_user(self, user_data: UserCreate) -> User:
+    async def create_user(self, user_data: UserCreate, background_tasks: BackgroundTasks) -> User:
         """Create a new user."""
         # Check if user already exists
         existing_user = await self.user_service.get_user_by_email_or_none(user_data.email)
@@ -58,15 +59,13 @@ class AuthService:
             is_verified=False
         )
          
-        # Send welcome email
-        try:
-            await self.email_service.send_welcome_email(
-                user_id=db_user.id,
-                to_email=db_user.email,
-                name=db_user.name
-            )
-        except Exception:
-            pass
+        # Send welcome email - background task to avoid blocking response
+        background_tasks.add_task(
+            self.email_service.send_welcome_email,
+            user_id=db_user.id,
+            to_email=db_user.email,
+            name=db_user.name
+        )
             
         return db_user
 
@@ -121,7 +120,7 @@ class AuthService:
         access_token = create_token(data={"sub": str(user.id)}, token_type="access")
         return access_token
     
-    async def forgot_password(self, email: str) -> bool:
+    async def forgot_password(self, email: str, background_tasks: BackgroundTasks) -> bool:
         """
         Initiate the password reset process by sending an email with reset token.
         Always returns True for security (doesn't reveal if email exists)
@@ -138,8 +137,9 @@ class AuthService:
                 pwd_sig= create_password_signature(user.password_hash)
             )
 
-            # Send reset email
-            await self.email_service.send_password_reset_email(
+            # Send reset email - background task to avoid blocking responses 
+            background_tasks.add_task(
+                self.email_service.send_password_reset_email,
                 user_id=user.id,
                 to_email=user.email,
                 reset_token=token,
