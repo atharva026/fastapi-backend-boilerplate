@@ -4,6 +4,17 @@ A **production-ready backend boilerplate** built with **FastAPI**, **SQLAlchemy*
 
 This template is designed for building scalable, maintainable APIs with clean separation of concerns and best practices baked in from day one.
 
+## Table of Contents
+
+| Section | Links |
+|---|---|
+| Getting Started Setup | [Getting Started Setup](#getting-started-setup) <br> [Prerequisites](#prerequisites) · [Installation](#installation) · [Virtual Environment](#virtual-environment) · [Project Dependencies](#project-dependencies) · [Environment Configuration & Files](#environment-configuration--files) |
+| Initialize database & migrations | [Initialize database & migrations](#initialize-database--migrations) <br> [Prerequisites](#prerequisites-1) · [Model Registration Requirement (Important)](#model-registration-requirement-important) · [Developer Checklist](#developer-checklist) · [Create New Migration](#create-new-migration) · [Apply Migrations (Upgrade DB)](#apply-migrations-upgrade-db) · [Downgrade (Rollback)](#downgrade-rollback) |
+| Redis Setup | [Redis Setup](#redis-setup) |
+| Run the application | [Run the application](#run-the-application) |
+| Create First Admin | [Create First Admin](#create-first-admin) · [Prerequisites](#prerequisites-2) |
+| Contributing | [Contributing](#contributing) |
+
 ## Getting Started Setup
 
 ### Prerequisites
@@ -208,6 +219,26 @@ alembic downgrade <revision_id>
 - Use meaningful migration messages.
 - Keep your model imports updated in `src/app/models/__init__.py`.
 - Review and test migrations in a local environment before applying in staging or production.
+
+## Create First Admin
+Use the following command to create the initial administrator account from the command line:
+
+```
+py -m src.app.scripts.create_first_admin
+```
+
+The script will prompt for the admin's name, email, and password, then create an admin user if the email is not already registered.
+
+### Prerequisites
+
+Before running the script, ensure that:
+
+- The database server is running and accessible.
+- Environment variables are configured correctly (e.g., `.env` file).
+- Database migrations have been applied.
+- Project dependencies are installed.
+- Virtual environment is activated.
+
 
 ## Contributing
 Feel free to open issues or submit pull requests if you want to improve the project.
