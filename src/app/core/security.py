@@ -7,6 +7,7 @@ from passlib.context import CryptContext
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 
 from src.app.core.config import config
+from src.app.core.exceptions import ExpiredTokenException, InvalidTokenException
 
 _reset_serializer = URLSafeTimedSerializer(
     secret_key=config.JWT_SECRET_KEY,
@@ -56,8 +57,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_token(
     data: dict,
     token_type: str,
-    expires_delta: Optional[timedelta] = None
-) -> str:
+    expires_delta: Optional[timedelta] = None,
+    return_payload: bool = False
+) -> tuple[str, dict] | str:
     """
     Create a JWT token with the given data and token type (access or refresh).
 
@@ -65,9 +67,10 @@ def create_token(
         data: Dictionary of data to include in the token payload (e.g. {"sub": user_id})
         token_type: "access" or "refresh" to determine expiration time
         expires_delta: Optional timedelta to override default expiration time
+        return_payload: If True, return a tuple of (token string, payload dictionary) instead of just the token string
 
     Returns:
-            Encoded JWT token string
+        Tuple of (token string, payload dictionary) or token string depending on return_payload flag
     """
     to_encode = data.copy()
     jti = str(uuid.uuid4())
@@ -82,21 +85,25 @@ def create_token(
             expire = now + timedelta(days=config.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
         else:
             raise ValueError("Invalid token type")
-        
-    to_encode.update({
+  
+    payload = {
+        **to_encode,
         "iat": now,
-        "exp": expire, 
+        "exp": expire,
         "type": token_type,
-        "jti": jti
-    })
+        "jti": jti,
+    }
 
-    encoded_jwt = PyJWT.encode(
-        to_encode, 
+    token = PyJWT.encode(
+        payload,
         config.JWT_SECRET_KEY,
-        algorithm=config.JWT_ALGORITHM
+        algorithm=config.JWT_ALGORITHM,
     )
+
+    if return_payload:
+        return token, payload
     
-    return encoded_jwt
+    return token
 
 def verify_token(token: str, token_type: str = "access"): # -> Optional[str]:
     """
@@ -111,19 +118,25 @@ def verify_token(token: str, token_type: str = "access"): # -> Optional[str]:
     """
     try:
         payload = PyJWT.decode(
-            token, 
-            config.JWT_SECRET_KEY, 
+            token,
+            config.JWT_SECRET_KEY,
             algorithms=[config.JWT_ALGORITHM]
         )
-        
+
         sub: str = payload.get("sub")
         token_type_payload: str = payload.get("type")
-        
+
         if sub is None or token_type_payload != token_type:
-            raise PyJWT.InvalidTokenError("Invalid token payload")
+            # payload missing required fields or type mismatch
+            raise InvalidTokenException("Invalid token payload")
+
         return payload
-    except (PyJWT.ExpiredSignatureError, PyJWT.InvalidTokenError):
-        return None
+    except PyJWT.ExpiredSignatureError:
+        # Token expired
+        raise ExpiredTokenException("Token has expired")
+    except PyJWT.InvalidTokenError:
+        # Any other JWT decode issues
+        raise InvalidTokenException("Invalid token")
 
 def exp_to_datetime(payload: dict) -> datetime:
     """Convert the 'exp' claim from the token payload to a datetime object."""
@@ -147,13 +160,16 @@ def create_reset_token(user_id: str, pwd_sig: str) -> str:
         }
     )
 
-def verify_reset_token(token: str) -> dict | None:
+def verify_reset_token(token: str) -> dict:
     """
     Validate a password-reset token.
 
     Returns:
-        {"sub": "<user_id>", "pwd_sig": "<signature>"} on success
-        None on expiry or tampering
+        {"sub": "<user_id>", "pwd_sig": "<signature>"} on success.
+
+    Raises:
+        ExpiredTokenException: If the token has expired.
+        InvalidTokenException: If the token is invalid or tampered.
     """
     try:
         data = _reset_serializer.loads(
@@ -162,14 +178,16 @@ def verify_reset_token(token: str) -> dict | None:
         )
 
         if "sub" not in data or "pwd_sig" not in data:
-            return None
+            raise InvalidTokenException("Invalid reset token payload")
 
         return {
-            "sub": data["sub"], 
+            "sub": data["sub"],
             "pwd_sig": data["pwd_sig"]
         }
 
     except SignatureExpired:
-        return None
+        # Token expired
+        raise ExpiredTokenException("Reset token has expired")
     except BadSignature:
-        return None
+        # Token tampered or otherwise invalid
+        raise InvalidTokenException("Invalid reset token")

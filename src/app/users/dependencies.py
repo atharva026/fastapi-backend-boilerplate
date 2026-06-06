@@ -31,8 +31,9 @@ async def get_current_user(
 
     Raises:
         NotAuthenticatedException: If the user is not authenticated.
-        InvalidTokenException: If the user token is invalid.
+        InvalidTokenException: If the user token is invalid. From verify_token or if the token is blocked.
         NotFoundException: If the user is not found.
+        ExpiredTokenException: If the token has expired. From verify_token.
 
     Returns:
         User: The current user if they are authenticated.
@@ -40,7 +41,7 @@ async def get_current_user(
     # Extract token from cookies
     token = request.cookies.get("access_token")
     if not token:
-        raise NotAuthenticatedException
+        raise NotAuthenticatedException()
     
     # Verify token and extract user ID
     payload = verify_token(token, token_type= "access")

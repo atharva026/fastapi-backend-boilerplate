@@ -86,14 +86,13 @@ class AuthService:
     async def create_tokens_for_user(self, user: User) -> Tuple[str, str]:
         """Create access and refresh tokens for a user."""
         access_token = create_token(data={"sub": str(user.id)}, token_type= "access")
-        refresh_token = create_token(data={"sub": str(user.id)}, token_type= "refresh")
+        refresh_token, refresh_payload = create_token(data={"sub": str(user.id)}, token_type= "refresh", return_payload=True)
 
         # Store refresh token in Redis allowlist
-        refresh_payload = verify_token(refresh_token, token_type="refresh")
         await self.token_store.store_refresh_token(
             user_id=str(user.id),
             jti=refresh_payload["jti"],
-            expires_at=exp_to_datetime(refresh_payload),
+            expires_at=refresh_payload["exp"],
         )
         
         return access_token, refresh_token
@@ -158,10 +157,9 @@ class AuthService:
         the password hasn't been changed since the token was issued.
         """
         
-        # Verify token and extract payload
+        # Verify token and extract payload. verify_reset_token will raise
+        # ExpiredTokenException or InvalidTokenException on error.
         token_data = verify_reset_token(token)
-        if token_data is None:
-            raise ExpiredTokenException()
 
         user_id = token_data["sub"]
         token_pwd_sig = token_data["pwd_sig"]
@@ -188,16 +186,24 @@ class AuthService:
         
         # Blocklist the access token for its remaining TTL
         if access_token:
-            payload = verify_token(access_token, token_type="access")
-            await self.token_store.blocklist_access_token(
-                jti=payload["jti"],
-                expires_at=exp_to_datetime(payload),
-            )
+            try:
+                payload = verify_token(access_token, token_type="access")
+                await self.token_store.blocklist_access_token(
+                    jti=payload["jti"],
+                    expires_at=exp_to_datetime(payload),
+                )
+            except (InvalidTokenException, ExpiredTokenException) as e:
+                # Token invalid/expired - still proceed with logout. Log and continue.
+                logger.info(f"Access token verification failed during logout: {str(e)}")
 
         # Remove refresh token from allowlist
         if refresh_token:
-            payload = verify_token(refresh_token, token_type="refresh")
-            await self.token_store.revoke_refresh_token(
-                user_id=payload["sub"],
-                jti=payload["jti"],
-            )
+            try:
+                payload = verify_token(refresh_token, token_type="refresh")
+                await self.token_store.revoke_refresh_token(
+                    user_id=payload["sub"],
+                    jti=payload["jti"],
+                )
+            except (InvalidTokenException, ExpiredTokenException) as e:
+                # Token invalid/expired - still proceed with logout. Log and continue.
+                logger.info(f"Refresh token verification failed during logout: {str(e)}")

@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, Response, status, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 
-from src.app.core.exceptions import InvalidTokenException
 from src.app.core.config import config
 
 from src.app.models.user import User
@@ -20,12 +19,9 @@ from src.app.common.response.response_groups import(
     USER_ALREADY_EXISTS,
     INTERNAL_SERVER_ERROR, 
     USER_NOT_FOUND,
+    INVALID_OR_EXPIRED_TOKEN_RESPONSE,
 )
-from src.app.common.response.examples import (
-    INVALID_CREDENTIALS_EXAMPLE, 
-    INVALID_TOKEN_EXAMPLE,
-    EXPIRED_TOKEN_EXAMPLE
-)
+from src.app.common.response.examples import INVALID_CREDENTIALS_EXAMPLE
 from src.app.common.response.response_builder import ResponseBuilder
 from src.app.utils.get_cookie_options import get_cookie_options
 from src.app.core.logging import get_logger
@@ -55,13 +51,11 @@ async def signup(
     "/login", 
     response_model = None,
     responses = {
-        status.HTTP_200_OK : {
+        status.HTTP_200_OK: {
             "description": "User logged in successfully",
             "content": {
                 "application/json": {
-                    "example": {
-                        "message": "Login successful"
-                    }
+                    "example": {"message": "Login successful"}
                 }
             }
         },
@@ -118,7 +112,7 @@ async def login(
                 }
             }
         },
-        **ResponseBuilder.build(status.HTTP_401_UNAUTHORIZED, INVALID_TOKEN_EXAMPLE),
+        **INVALID_OR_EXPIRED_TOKEN_RESPONSE,
         **USER_NOT_FOUND,
         **INTERNAL_SERVER_ERROR
     }
@@ -166,7 +160,7 @@ async def refresh_token(
         **INTERNAL_SERVER_ERROR
     }
 )
-async def forgot_password_route(
+async def forgot_password(
     request_data: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     auth_service: AuthService = Depends(get_auth_service)
@@ -191,7 +185,7 @@ async def forgot_password_route(
                 }
             }
         },
-        **ResponseBuilder.build(status.HTTP_401_UNAUTHORIZED, INVALID_TOKEN_EXAMPLE, EXPIRED_TOKEN_EXAMPLE),
+        **INVALID_OR_EXPIRED_TOKEN_RESPONSE,
         **USER_NOT_FOUND,
         **INTERNAL_SERVER_ERROR
     }
@@ -202,13 +196,10 @@ async def reset_password(
 ):
     """Reset password using reset token"""
     success = await auth_service.reset_password(reset_data.token, reset_data.new_password)
-        
     if success:
         return MessageResponse(
             message="Password reseted successfully"
         )
-    else:
-        raise InvalidTokenException()
 
 @router.get(
     "/me", 
