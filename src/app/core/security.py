@@ -9,9 +9,8 @@ from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from src.app.core.config import config
 from src.app.core.exceptions import ExpiredTokenException, InvalidTokenException
 
-_reset_serializer = URLSafeTimedSerializer(
-    secret_key=config.JWT_SECRET_KEY,
-    salt="password-reset"
+_serializer = URLSafeTimedSerializer(
+    secret_key=config.TOKEN_SERIALIZER_SECRET_KEY,
 )
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -153,11 +152,9 @@ def create_reset_token(user_id: str, pwd_sig: str) -> str:
         user_id: User ID for which the token is being created (required)
         pwd_sig: Password signature (required)
     """
-    return _reset_serializer.dumps(
-        {
-            "sub": user_id, 
-            "pwd_sig": pwd_sig
-        }
+    return _serializer.dumps(
+        {"sub": user_id, "pwd_sig": pwd_sig},
+        salt=config.PASSWORD_RESET_SALT
     )
 
 def verify_reset_token(token: str) -> dict:
@@ -172,9 +169,10 @@ def verify_reset_token(token: str) -> dict:
         InvalidTokenException: If the token is invalid or tampered.
     """
     try:
-        data = _reset_serializer.loads(
+        data = _serializer.loads(
             token,
-            max_age=(60 * config.JWT_RESET_TOKEN_EXPIRE_MINUTES)
+            max_age=(60 * config.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES),
+            salt=config.PASSWORD_RESET_SALT
         )
 
         if "sub" not in data or "pwd_sig" not in data:
@@ -191,3 +189,45 @@ def verify_reset_token(token: str) -> dict:
     except BadSignature:
         # Token tampered or otherwise invalid
         raise InvalidTokenException("Invalid reset token")
+
+def create_verification_token(user_id: str, email: str) -> str:
+    """
+    Create a signed, time-limited email-verification token.
+    Payload includes the email so the token is invalidated automatically
+    if the user changes their email before clicking the link.
+    """
+    return _serializer.dumps(
+        {"sub": user_id, "email": email},
+        salt=config.EMAIL_VERIFICATION_SALT
+    )
+
+def verify_verification_token(token: str) -> dict | None:
+    """
+    Validate an email-verification token.
+    Returns:
+        {"sub": "<user_id>", "email": "<email>"} on success
+    Raises:
+        ExpiredTokenException: If the token has expired.
+        InvalidTokenException: If the token is invalid or tampered.
+    """
+    try:
+        data = _serializer.loads(
+            token,
+            max_age=60 * 60 * config.VERIFICATION_TOKEN_EXPIRE_HOURS,
+            salt=config.EMAIL_VERIFICATION_SALT
+        )
+
+        if "sub" not in data or "email" not in data:
+            return InvalidTokenException()
+
+        return {
+            "sub": data["sub"], 
+            "email": data["email"]
+        }
+
+    except SignatureExpired:
+        # Token expired
+        raise ExpiredTokenException()
+    except BadSignature:
+        # Token tampered or otherwise invalid
+        raise InvalidTokenException()

@@ -30,11 +30,12 @@ class EmailService:
         cc: Optional[str] = None,
         bcc: Optional[str] = None,
         reply_to: Optional[str] = None
-    ):
+    ) -> bool:
         """
         Send an email.
         
         Args:
+            user_id: ID of the user
             to_email: Recipient email address
             email_type: Type of email being sent (for logging)
             subject: Email subject line
@@ -100,6 +101,7 @@ class EmailService:
         Send a welcome email.
 
         Args:
+            user_id: ID of the user
             to_email: Recipient email address
             name: Name of the recipient
             
@@ -135,6 +137,7 @@ class EmailService:
         Send a password reset email.
 
         Args:
+            user_id: ID of the user
             to_email: Recipient email address
             reset_token: Password reset token
             name: Name of the recipient
@@ -150,7 +153,7 @@ class EmailService:
                 {
                     "name": name,
                     "reset_url": reset_url,
-                    "expire_minutes": config.JWT_RESET_TOKEN_EXPIRE_MINUTES
+                    "expire_minutes": config.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
                 }
             )
         except Exception as e:
@@ -161,7 +164,49 @@ class EmailService:
             user_id=user_id,
             to_email=to_email,
             email_type="PASSWORD_RESET",
-            subject="Password Reset Request",
+            subject="Password Reset Requested",
+            html_content=html_content
+        )
+
+    async def send_verification_email(
+        self, 
+        user_id: uuid.UUID, 
+        to_email: str, 
+        verification_token: str, 
+        name: str
+    ):
+        """
+        Send a password reset email.
+
+        Args:
+            user_id: ID of the user
+            to_email: Recipient email address
+            verification_token: email verification token
+            name: Name of the recipient
+            
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        verification_url = f"{config.FRONTEND_URL}/verify-email?token={verification_token}"
+
+        try:
+            html_content = render_email_template(
+                "emails/email_verification.html",
+                {
+                    "name": name,
+                    "verification_url": verification_url,
+                    "expire_hours": config.VERIFICATION_TOKEN_EXPIRE_HOURS
+                }
+            )
+        except Exception as e:
+            logger.error(f"(email_service - send_verification_email) Failed to render email template: {str(e)}")
+            return False
+
+        return await self.send_email(
+            user_id=user_id,
+            to_email=to_email,
+            email_type="EMAIL_VERIFICATION",
+            subject="Verify Your Email Address",
             html_content=html_content
         )
     

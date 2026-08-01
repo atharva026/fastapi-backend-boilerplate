@@ -1,16 +1,16 @@
-import redis.asyncio as redis
+import redis.asyncio as aioredis
 from src.app.core.config import config
 from src.app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
 # Global variable to hold the Redis connection pool
-_redis_pool: redis.ConnectionPool | None = None
+_redis_pool: aioredis.ConnectionPool | None = None
 
 async def redis_on_startup() -> None:
     """Initialize the Redis connection pool on application startup."""
     global _redis_pool
-    _redis_pool = redis.ConnectionPool(
+    _redis_pool = aioredis.ConnectionPool(
         host=config.REDIS_CONFIG.redis_host,
         port=config.REDIS_CONFIG.redis_port,
         db=config.REDIS_CONFIG.redis_db,
@@ -23,7 +23,7 @@ async def redis_on_startup() -> None:
     )
 
     # Verify connection eagerly — fail loud at startup
-    async with redis.Redis(connection_pool=_redis_pool) as client:
+    async with aioredis.Redis(connection_pool=_redis_pool) as client:
         await client.ping()
 
     auth_part = "no-auth"
@@ -49,8 +49,8 @@ async def redis_on_shutdown() -> None:
         _redis_pool = None
         logger.info("Redis connection pool closed")
 
-async def get_redis() -> redis.Redis:
+async def get_redis() -> aioredis.Redis:
     """Get a Redis client instance from the connection pool. Raises an error if the pool is not initialized."""
     if _redis_pool is None:
         raise RuntimeError("Redis pool not initialized")
-    return redis.Redis(connection_pool=_redis_pool)
+    return aioredis.Redis(connection_pool=_redis_pool)

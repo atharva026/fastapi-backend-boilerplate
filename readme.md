@@ -1,6 +1,6 @@
 # FastAPI – Alembic – SQLAlchemy Boilerplate
 
-A **production-ready backend boilerplate** built with **FastAPI**, **SQLAlchemy**, and **Alembic**, featuring **JWT-based authentication**, **user management**, and a **feature-based modular architecture** and includes **Redis integration** for efficient **access & refresh token management**..
+A **production-ready backend boilerplate** built with **FastAPI**, **SQLAlchemy**, and **Alembic**, featuring **JWT-based authentication**, **user management**, and a **feature-based modular architecture**. It includes **Redis integration** for efficient **access & refresh token management**, plus **middleware-driven Redis-backed rate limiting**.
 
 This template is designed for building scalable, maintainable APIs with clean separation of concerns and best practices baked in from day one.
 
@@ -20,7 +20,7 @@ This template is designed for building scalable, maintainable APIs with clean se
 ### Prerequisites
 - Python (3.10+ recommended)
 - PostgreSQL (or your preferred DB)
-- Redis (for token storage)
+- Redis (for token storage & rate limit)
 
 ### Installation
 Clone the repository
@@ -115,6 +115,22 @@ alembic upgrade head
 
 ### Redis Setup
 Make sure Redis is installed and running on your machine. Configure Redis connection settings in your `.env.*` file. Refer to `.env.sample` for required Redis env variables.
+
+This project also uses Redis for global request throttling via a pure ASGI rate-limiting middleware. Rate limit headers are returned on allowed requests, and Redis is required for the limiter to enforce request quotas reliably.
+
+Default rate limits:
+- Auth endpoints: 10 requests per minute per IP
+- Public endpoints: 60 requests per minute per IP
+- Private authenticated endpoints: 30 requests per minute per user
+- Email-related endpoints: 2 requests per minute per IP
+
+The middleware exposes these headers on responses:
+- `X-RateLimit-Limit`
+- `X-RateLimit-Remaining`
+- `X-RateLimit-Reset`
+- `Retry-After` (when rate limited)
+
+Health and root endpoints are exempt from rate limiting.
 
 ### Run the application
 Start the FastAPI application using Uvicorn:

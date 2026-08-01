@@ -29,13 +29,18 @@ class ForbiddenException(AppException):
     def __init__(self, message: str = "Forbidden"):
         super().__init__(message, code="FORBIDDEN")
 
+class EmailNotVerifiedException(AppException):
+    status_code = status.HTTP_403_FORBIDDEN
+    def __init__(self,message: str = "Email address not verified. Please verify your email before continuing."):
+        super().__init__(message, code="EMAIL_NOT_VERIFIED")
+
 class ValidationException(AppException):
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     def __init__(self, message: str = "Validation failed"):
         super().__init__(message, code="VALIDATION_ERROR")
 
 class UnexpectedException(AppException):
-    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
     def __init__(self, message: str = "Something went wrong"):
         super().__init__(message, code="INTERNAL_SERVER_ERROR")
 

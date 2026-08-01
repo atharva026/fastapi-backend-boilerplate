@@ -12,6 +12,7 @@ from src.app.auth.schemas import (
     ForgotPasswordRequest,
     MessageResponse, 
     ResetPasswordRequest,
+    ResendVerificationRequest
 )
 from src.app.auth.service import AuthService
 from src.app.common.response.response_groups import( 
@@ -32,7 +33,7 @@ router = APIRouter()
 
 @router.post(
     "/signup", 
-    response_model = UserResponse,
+    response_model = MessageResponse,
     status_code = status.HTTP_201_CREATED,
     responses = {
         **USER_ALREADY_EXISTS,
@@ -45,7 +46,19 @@ async def signup(
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """Register a new user"""
-    return await auth_service.create_user(user_data, background_tasks)
+    user = await auth_service.create_user(user_data)
+
+    # Send verification email - background task to avoid blocking response
+    auth_service.queue_verification_email(
+        user_id=str(user.id),
+        email=user.email,
+        name=user.name,
+        background_tasks=background_tasks
+    )
+
+    return MessageResponse(
+        message="Account created successfully. Please check your email to verify your account."
+    )
 
 @router.post(
     "/login", 
@@ -60,7 +73,6 @@ async def signup(
             }
         },
         **ResponseBuilder.build(status.HTTP_401_UNAUTHORIZED, INVALID_CREDENTIALS_EXAMPLE),
-        **USER_NOT_FOUND,
         **INTERNAL_SERVER_ERROR
     }
 )
@@ -144,6 +156,75 @@ async def refresh_token(
 
     return response
 
+@router.get(
+    "/verify-email",
+    responses = {
+        status.HTTP_200_OK : {
+            "description": "Email verified successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "message": "Email verified successfully"
+                    }
+                }
+            }
+        },
+        **INVALID_OR_EXPIRED_TOKEN_RESPONSE,
+        **USER_NOT_FOUND,
+        **INTERNAL_SERVER_ERROR
+    }
+)
+async def verify_email(
+    token: str,
+    background_tasks: BackgroundTasks,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """Verify email address via signed token link."""
+    res = await auth_service.verify_email(token)
+
+    if res == "already_verified":
+        return MessageResponse(message="Email already verified")
+
+    background_tasks.add_task(
+        auth_service.email_service.send_welcome_email,
+        user_id=res.id,
+        to_email=res.email,
+        name=res.name
+    ) 
+
+    return MessageResponse(message="Email verified successfully")
+
+@router.post(
+    "/resend-verification",
+    responses = {
+        status.HTTP_200_OK : {
+            "description": "A new verification link has been sentto email successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "message": "If the email exists and is unverified, a new verification link has been sent"
+                    }
+                }
+            }
+        },
+        **INTERNAL_SERVER_ERROR
+    }
+)
+async def resend_verification(
+    request_data: ResendVerificationRequest,
+    background_tasks: BackgroundTasks,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """Re-send verification email. Always 200 to prevent enumeration."""
+    await auth_service.resend_verification_email(
+        request_data.email,
+        background_tasks
+    )
+
+    return MessageResponse(
+        message="If the email exists and is unverified, a new verification link has been sent"
+    )
+
 @router.post(
     "/forgot-password",
     responses = {
@@ -211,7 +292,12 @@ async def reset_password(
     }
 )
 def get_current_user_info(current_user: User = Depends(get_current_user)):
-    """Get current user information"""
+    """
+    Return the currently authenticated user's profile.
+    This endpoint only requires authentication. Email verification is
+    not required so the frontend can hydrate the authenticated user
+    and determine the verification status.
+    """
     return current_user
 
 @router.post(

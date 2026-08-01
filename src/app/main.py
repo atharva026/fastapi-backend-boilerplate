@@ -14,8 +14,10 @@ from src.app.core.database import (
 )
 from src.app.core.redis import (
     redis_on_startup,
-    redis_on_shutdown
+    redis_on_shutdown,
+    get_redis,
 )
+from src.app.core.rate_limiter import RedisRateLimiter
 
 from fastapi.exceptions import RequestValidationError
 from src.app.core.exceptions import AppException
@@ -25,6 +27,9 @@ from src.app.core.exception_handlers import (
     http_exception_handler,
     unhandled_exception_handler,
 )
+from src.app.middleware.rate_limit import RateLimitMiddleware
+from src.app.middleware.auth import AuthenticationMiddleware
+from src.app.core.token_store import TokenStore
 
 # Configure logging
 setup_logging()
@@ -37,6 +42,11 @@ VERSION = "1.0.0"
 async def lifespan(app: FastAPI):
     await db_on_startup()
     await redis_on_startup()
+
+    redis = await get_redis()
+    app.state.redis = redis
+    app.state.rate_limiter = RedisRateLimiter(redis)
+    app.state.token_store = TokenStore(redis)
 
     yield
 
@@ -53,13 +63,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# FastAPI middleware reverse order execution: the last added middleware is executed first. 
+
+# Rate limit middleware
+app.add_middleware(
+    RateLimitMiddleware,
+)
+
+# Authentication Middleware
+app.add_middleware(
+    AuthenticationMiddleware,
+)
+
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=[
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
+        "Retry-After",
+    ],
 )
 
 app.add_exception_handler(AppException, app_exception_handler)
@@ -74,7 +102,7 @@ app.include_router(api_router, prefix="/api/v1")
 async def root():
     logger.info("Root endpoint accessed")
     return {
-        "message": "FastAPI ",
+        "message": "FastAPI - Alembic - SQLAlchemy Boilerplate",
         "version": VERSION,
         "docs": "/docs"
     }
@@ -85,17 +113,3 @@ async def health_check():
     return {
         "status": "Ok" 
     }
-
-# TODO: Remove in production
-CUSTOM_EXC_MSG = "This is a custom app exception"
-@app.get("/test-app-exception", tags=['Health Checks'])
-async def test_route1():
-    raise AppException(CUSTOM_EXC_MSG)
-
-@app.get("/test-request-validation-exception", tags=['Health Checks'])
-async def test_route2():
-    raise RequestValidationError(CUSTOM_EXC_MSG)
-
-@app.get("/test-exception", tags=['Health Checks'])
-async def test_route3():
-    raise Exception(CUSTOM_EXC_MSG)

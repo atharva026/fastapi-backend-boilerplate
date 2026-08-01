@@ -42,6 +42,14 @@ INSUFFICIENT_PERMISSIONS_EXAMPLE = {
     )
 }
 
+EMAIL_NOT_VERIFIED_EXAMPLE = {
+    "EmailNotVerified": build_example(
+        summary="Email not verified",
+        code="EMAIL_NOT_VERIFIED",
+        message="Email address not verified.",
+    )
+}
+
 # 404 Not Found 
 USER_NOT_FOUND_EXAMPLE = {
     "UserNotFound": build_example(
@@ -65,6 +73,15 @@ USER_ALREADY_EXISTS_EXAMPLE = {
         summary="User already exists",
         code="USER_ALREADY_EXISTS",
         message="User with this email already exists.",
+    )
+}
+
+# 429
+TOO_MANY_REQUESTS_EXAMPLE = {
+    "TooManyRequests": build_example(
+        summary="Too many requests",
+        code="TOO_MANY_REQUESTS",
+        message="Too many requests. Please try again later.",
     )
 }
 

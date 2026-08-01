@@ -16,8 +16,14 @@ class LoginRequest(BaseModel):
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
-class ForgotPasswordRequest(BaseModel):
+class EmailRequest(BaseModel):
     email: EmailStr
+
+class ForgotPasswordRequest(EmailRequest):
+    pass
+
+class ResendVerificationRequest(EmailRequest):
+    pass
 
 class ResetPasswordRequest(BaseModel):
     token: str

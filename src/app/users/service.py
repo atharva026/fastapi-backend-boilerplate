@@ -1,6 +1,6 @@
 from typing import Optional
 import uuid
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.user import User, UserType
@@ -114,3 +114,20 @@ class UserService:
         await self.db.refresh(user)
             
         return user
+
+    async def mark_verified_if_not_already(
+        self, 
+        user_id: uuid.UUID
+    ) -> bool:
+        """
+        Atomically flips is_verified False -> True.
+        Returns True only for the single request that actually performed the flip.
+        Returns False if already verified (or lost a concurrent race).
+        """
+        result = await self.db.execute(
+            update(User)
+            .where(User.id == user_id, User.is_verified.is_(False))
+            .values(is_verified=True)
+        )
+        await self.db.flush()  # push to DB now; outer session manager commits
+        return result.rowcount > 0

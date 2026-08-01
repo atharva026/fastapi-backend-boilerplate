@@ -22,6 +22,11 @@ FORBIDDEN_RESPONSES = ResponseBuilder.build(
     examples.INSUFFICIENT_PERMISSIONS_EXAMPLE
 )
 
+EMAIL_NOT_VERIFIED_RESPONSE = ResponseBuilder.build(
+    status.HTTP_403_FORBIDDEN,
+    examples.EMAIL_NOT_VERIFIED_EXAMPLE
+)
+
 # 404 
 USER_NOT_FOUND = ResponseBuilder.build(
     status.HTTP_404_NOT_FOUND,

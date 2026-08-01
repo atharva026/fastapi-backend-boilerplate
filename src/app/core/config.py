@@ -65,12 +65,17 @@ class Settings(BaseSettings):
     # Database
     DB_CONFIG: DBConfig
 
-    # JWT
+    # JWT & Token
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080 # 7 days
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
-    JWT_RESET_TOKEN_EXPIRE_MINUTES: int = 15
+
+    TOKEN_SERIALIZER_SECRET_KEY: str
+    PASSWORD_RESET_SALT: str
+    EMAIL_VERIFICATION_SALT: str
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 15
+    VERIFICATION_TOKEN_EXPIRE_HOURS: int = 2
     
     # Email
     EMAIL_CONFIG: EmailConfig

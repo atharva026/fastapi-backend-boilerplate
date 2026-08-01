@@ -23,7 +23,9 @@ from src.app.core.security import (
     create_reset_token,
     verify_reset_token,
     verify_token,
-    exp_to_datetime
+    exp_to_datetime,
+    create_verification_token,
+    verify_verification_token
 )
 from src.app.core.logging import get_logger
 
@@ -40,7 +42,7 @@ class AuthService:
         self.email_service = email_service
         self.token_store = token_store
     
-    async def create_user(self, user_data: UserCreate, background_tasks: BackgroundTasks) -> User:
+    async def create_user(self, user_data: UserCreate) -> User:
         """Create a new user."""
         # Check if user already exists
         existing_user = await self.user_service.get_user_by_email_or_none(user_data.email)
@@ -58,20 +60,16 @@ class AuthService:
             user_type=UserType.USER,      # Default to regular user
             is_verified=False
         )
-         
-        # Send welcome email - background task to avoid blocking response
-        background_tasks.add_task(
-            self.email_service.send_welcome_email,
-            user_id=db_user.id,
-            to_email=db_user.email,
-            name=db_user.name
-        )
             
         return db_user
 
     async def authenticate_user(self, login_data: LoginRequest) -> User:
         """Authenticate a user."""
-        user = await self.user_service.get_user_by_email_or_raise(email=login_data.email)
+        user = await self.user_service.get_user_by_email_or_none(email=login_data.email)
+
+        # Validate user existence and password
+        if not user:
+            raise InvalidCredentialsException()
         
         if not user.password_hash:
             raise InvalidCredentialsException()
@@ -118,6 +116,93 @@ class AuthService:
         
         access_token = create_token(data={"sub": str(user.id)}, token_type="access")
         return access_token
+
+    def queue_verification_email(
+        self,
+        user_id: str,
+        email: str,
+        name: str,
+        background_tasks: BackgroundTasks,
+    ) -> None:
+        """ 
+        Generate a verification token and dispatch the email. 
+        Called right after registration (or on manual resend). 
+        Does NOT raise — email failures are logged silently so registration still succeeds. 
+        """
+        token = create_verification_token(user_id=user_id, email=email)
+
+        background_tasks.add_task(
+            self.email_service.send_verification_email,
+            user_id=user_id,
+            to_email=email,
+            verification_token=token,
+            name=name,
+        )
+
+    async def verify_email(self, token: str) -> User | str:
+        """
+        Verify a user's email address from a signed token.
+
+        Edge cases handled:
+        - Expired token   → ExpiredTokenException
+        - Tampered token  → InvalidTokenException
+        - Wrong email     → InvalidTokenException  (email changed after token was issued)
+        - Already verified → returns True immediately (idempotent, safe to re-click)
+        - User not found  → NotFoundException
+
+        Returns:
+        - User object if verification successful
+        - "already_verified" if already verified (idempotent)
+        """
+        token_data = verify_verification_token(token)
+
+        user_id = token_data["sub"]
+        token_email = token_data["email"]
+
+        user = await self.user_service.get_user_by_id_or_raise(user_id)
+
+        # Guard: email in token must match current DB email.
+        # Prevents a stolen old token from verifying a new email address.
+        if user.email != token_email:
+            raise InvalidTokenException(
+                "This verification link is no longer valid. Please request a new verification email."
+            )
+
+        # Idempotent — already verified, nothing to do
+        if user.is_verified:
+            return "already_verified"
+        
+        updated = await self.user_service.mark_verified_if_not_already(user_id)
+
+        if not updated:
+            return "already_verified"
+
+        user.is_verified = True
+        logger.info(f"Email verified for user {user_id}")
+        return user
+
+    async def resend_verification_email(self, email: str, background_tasks: BackgroundTasks) -> bool:
+        """
+        Re-send verification email. Always returns True (no email-enumeration leak).
+        
+        Abuse prevention:
+        - Silently no-ops if user is already verified.
+        """
+        try:
+            user = await self.user_service.get_user_by_email_or_none(email)
+            if not user or user.is_verified:
+                return True   # Don't reveal whether the address exists or is verified
+
+            self.queue_verification_email(
+                user_id=str(user.id), 
+                email=user.email, 
+                name=user.name, 
+                background_tasks=background_tasks
+            )
+        except Exception as e:
+            logger.error(f"resend_verification_email error: {e}")
+
+        return True
     
     async def forgot_password(self, email: str, background_tasks: BackgroundTasks) -> bool:
         """
