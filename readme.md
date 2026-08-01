@@ -1,8 +1,8 @@
-# FastAPI – Alembic – SQLAlchemy Boilerplate
+# FastAPI Backend Boilerplate
 
 A **production-ready backend boilerplate** built with **FastAPI**, **SQLAlchemy**, and **Alembic**, featuring **JWT-based authentication**, **user management**, and a **feature-based modular architecture**. It includes **Redis integration** for efficient **access & refresh token management**, plus **middleware-driven Redis-backed rate limiting**.
 
-This template is designed for building scalable, maintainable APIs with clean separation of concerns and best practices baked in from day one.
+This boilerplate is designed for building scalable, maintainable APIs with clean separation of concerns and best practices baked in from day one.
 
 ## Table of Contents
 

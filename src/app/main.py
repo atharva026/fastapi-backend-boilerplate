@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
     await db_on_shutdown()
     
 app = FastAPI(
-    title="Fast API Boilerplate",
+    title="Fast Backend API Boilerplate",
     description="REST API documentation",
     version=VERSION,
     docs_url=None if config.ENVIRONMENT == "prod" else "/docs",
@@ -102,7 +102,7 @@ app.include_router(api_router, prefix="/api/v1")
 async def root():
     logger.info("Root endpoint accessed")
     return {
-        "message": "FastAPI - Alembic - SQLAlchemy Boilerplate",
+        "message": "FastAPI Backend Boilerplate",
         "version": VERSION,
         "docs": "/docs"
     }
