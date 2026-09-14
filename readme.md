@@ -7,9 +7,9 @@ This boilerplate is designed for building scalable, maintainable APIs with clean
 ## Table of Contents
 
 | Section | Links |
-|---|---|
-| Getting Started Setup | [Getting Started Setup](#getting-started-setup) <br> [Prerequisites](#prerequisites) · [Installation](#installation) · [Virtual Environment](#virtual-environment) · [Project Dependencies](#project-dependencies) · [Environment Configuration & Files](#environment-configuration--files) |
-| Initialize database & migrations | [Initialize database & migrations](#initialize-database--migrations) <br> [Prerequisites](#prerequisites-1) · [Model Registration Requirement (Important)](#model-registration-requirement-important) · [Developer Checklist](#developer-checklist) · [Create New Migration](#create-new-migration) · [Apply Migrations (Upgrade DB)](#apply-migrations-upgrade-db) · [Downgrade (Rollback)](#downgrade-rollback) |
+| --- | --- |
+| Getting Started Setup | [Getting Started Setup](#getting-started-setup) · [Prerequisites](#prerequisites) · [Installation](#installation) · [Virtual Environment](#virtual-environment) · [Project Dependencies](#project-dependencies) · [Environment Configuration &amp; Files](#environment-configuration--files) |
+| Initialize database & migrations | [Initialize database &amp; migrations](#initialize-database--migrations) · [Prerequisites](#prerequisites-1) · [Model Registration Requirement (Important)](#model-registration-requirement-important) · [Developer Checklist](#developer-checklist) · [Create New Migration](#create-new-migration) · [Apply Migrations (Upgrade DB)](#apply-migrations-upgrade-db) · [Downgrade (Rollback)](#downgrade-rollback) |
 | Redis Setup | [Redis Setup](#redis-setup) |
 | Run the application | [Run the application](#run-the-application) |
 | Create First Admin | [Create First Admin](#create-first-admin) · [Prerequisites](#prerequisites-2) |
@@ -48,7 +48,7 @@ After activating the virtual environment, install all required dependencies usin
 pip install -r requirements.txt
 ```
 
-#### Update 
+#### Update
 After installing or upgrading project dependencies, update `requirements.txt`
 ```bash
 pip freeze > requirements.txt
@@ -104,7 +104,7 @@ EMAIL_CONFIG__EMAIL_HOST=
 REDIS_CONFIG__REDIS_HOST=l
 ```
 
-### Initialize database & migrations
+## Initialize database & migrations
 Make sure your database is running and the connection settings in your `.env.*` file are correct. Refer to `.env.sample` for required database env variables.
 
 Then, initialize the database schema using Alembic migrations:
@@ -113,35 +113,7 @@ Then, initialize the database schema using Alembic migrations:
 alembic upgrade head
 ```
 
-### Redis Setup
-Make sure Redis is installed and running on your machine. Configure Redis connection settings in your `.env.*` file. Refer to `.env.sample` for required Redis env variables.
-
-This project also uses Redis for global request throttling via a pure ASGI rate-limiting middleware. Rate limit headers are returned on allowed requests, and Redis is required for the limiter to enforce request quotas reliably.
-
-Default rate limits:
-- Auth endpoints: 10 requests per minute per IP
-- Public endpoints: 60 requests per minute per IP
-- Private authenticated endpoints: 30 requests per minute per user
-- Email-related endpoints: 2 requests per minute per IP
-
-The middleware exposes these headers on responses:
-- `X-RateLimit-Limit`
-- `X-RateLimit-Remaining`
-- `X-RateLimit-Reset`
-- `Retry-After` (when rate limited)
-
-Health and root endpoints are exempt from rate limiting.
-
-### Run the application
-Start the FastAPI application using Uvicorn:
-
-```bash
-uvicorn src.app.main:app --reload
-``` 
-For Swagger docs visit: http://localhost:8000/docs
-
-
-## Database Migrations with Alembic
+### Database Migrations with Alembic
 We use **Alembic** for managing schema migrations 
 
 ### Prerequisites
@@ -235,6 +207,38 @@ alembic downgrade <revision_id>
 - Use meaningful migration messages.
 - Keep your model imports updated in `src/app/models/__init__.py`.
 - Review and test migrations in a local environment before applying in staging or production.
+
+## Redis Setup
+
+Make sure Redis is installed and running on your machine. Configure Redis connection settings in your `.env.*` file. Refer to `.env.sample` for required Redis env variables.
+
+This project also uses Redis for global request throttling via a pure ASGI rate-limiting middleware. Rate limit headers are returned on allowed requests, and Redis is required for the limiter to enforce request quotas reliably.
+
+Default rate limits:
+
+- Auth endpoints: 10 requests per minute per IP
+- Public endpoints: 60 requests per minute per IP
+- Private authenticated endpoints: 30 requests per minute per user
+- Email-related endpoints: 2 requests per minute per IP
+
+The middleware exposes these headers on responses:
+
+- `X-RateLimit-Limit`
+- `X-RateLimit-Remaining`
+- `X-RateLimit-Reset`
+- `Retry-After` (when rate limited)
+
+Health and root endpoints are exempt from rate limiting.
+
+## Run the application
+
+Start the FastAPI application using Uvicorn:
+
+```bash
+uvicorn src.app.main:app --reload
+```
+
+For Swagger docs visit: http://localhost:8000/docs
 
 ## Create First Admin
 Use the following command to create the initial administrator account from the command line:
